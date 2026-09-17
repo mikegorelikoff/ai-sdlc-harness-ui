@@ -94,14 +94,19 @@ function aiSdlcApiPlugin() {
           }
         };
 
-        const getArtifacts = async () => {
+        const getArtifacts = async (branch) => {
           try {
-            const { stdout } = await execAsync('find .ai-sdlc .ai-sdlc-loop .agents -name "*.toon" -o -name "*.md" -type f 2>/dev/null | head -n 10', { cwd: projectRoot });
-            return stdout.split('\n').filter(Boolean).map(f => ({
-              name: path.basename(f),
-              path: f,
-              type: f.endsWith('.toon') ? 'TOON Spec' : 'Markdown'
-            }));
+            const featureName = branch.split('/').pop();
+            const specDir = path.join(projectRoot, 'specs', featureName, '_ai_sdlc');
+            if (fs.existsSync(specDir)) {
+              const { stdout } = await execAsync(`find "${specDir}" -name "*.toon" -o -name "*.json"`, { cwd: projectRoot });
+              return stdout.split('\n').filter(Boolean).map(f => ({
+                name: path.basename(f),
+                path: f,
+                type: f.endsWith('.toon') ? 'TOON Spec' : 'JSON'
+              }));
+            }
+            return [];
           } catch (e) {
             return [];
           }
@@ -116,7 +121,7 @@ function aiSdlcApiPlugin() {
             const profile = loopScript ? 'loop' : (backboneScript ? 'backbone' : 'loop');
             const repoData = await getRepoData(branch);
             const sessions = await getSessions();
-            const artifacts = await getArtifacts();
+            const artifacts = await getArtifacts(branch);
             const trajectory = await getTrajectory(branch);
 
             let stateData = {};
