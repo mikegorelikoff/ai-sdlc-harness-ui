@@ -357,6 +357,15 @@ export default function App() {
                 <div className="text-[11px] text-[#71717a] mt-2 text-center">Requires explicit signature</div>
               </div>
             )}
+            
+            {status === 'completed' && (
+              <div className="mt-6 pt-5 border-t border-[#27272a]">
+                <div className="w-full bg-[#22c55e]/10 border border-[#22c55e]/20 text-[#22c55e] font-semibold py-2 rounded-md flex items-center justify-center gap-2 text-sm shadow-sm">
+                  <CheckCircle2 className="w-4 h-4" /> Feature Completed
+                </div>
+                <div className="text-[11px] text-[#71717a] mt-2 text-center">All validation gates passed</div>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 overflow-y-auto p-5 space-y-8">
@@ -399,24 +408,29 @@ export default function App() {
             <section>
               <div className="flex items-center gap-2 mb-4">
                 <Zap className="w-4 h-4 text-[#71717a]"/>
-                <h3 className="text-[11px] font-bold text-[#71717a] uppercase tracking-wider">Evidence</h3>
+                <h3 className="text-[11px] font-bold text-[#71717a] uppercase tracking-wider">Evidence & Receipts</h3>
               </div>
               
-              {stageIndex >= 4 ? (
+              {artifacts.filter(a => a.name.includes('receipt') || a.name.includes('benchmark')).length > 0 ? (
                 <div className="space-y-3">
-                  <div className="bg-[#1f1f22] border border-[#27272a] rounded-md p-3 shadow-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                      <ShieldCheck className="w-4 h-4 text-[#22c55e]" />
-                      <span className="font-semibold text-[13px] text-[#ededef]">Engineering Quality Gate</span>
+                  {artifacts.filter(a => a.name.includes('receipt') || a.name.includes('benchmark')).map((art, idx) => (
+                    <div key={idx} className="bg-[#1f1f22] border border-[#27272a] rounded-md p-3 shadow-sm">
+                      <div className="flex items-center gap-2 mb-2">
+                        <ShieldCheck className="w-4 h-4 text-[#22c55e]" />
+                        <span className="font-semibold text-[13px] text-[#ededef]">Quality Gate Passed</span>
+                      </div>
+                      <div className="text-[#a1a1aa] font-mono text-[12px] bg-[#0e0e11] p-2 rounded border border-[#27272a] flex justify-between items-center">
+                        <span className="truncate">{art.name}</span>
+                        <a href="#" className="text-indigo-400 hover:text-indigo-300 ml-2 shrink-0">View</a>
+                      </div>
                     </div>
-                    <div className="text-[#a1a1aa] font-mono text-[12px] bg-[#0e0e11] p-2 rounded border border-[#27272a]">Analyzed via Pre-commit hooks</div>
-                  </div>
+                  ))}
                 </div>
               ) : (
                 <div className="bg-[#1f1f22] border border-[#27272a] border-dashed rounded-md p-6 flex flex-col items-center justify-center text-center">
                   <ShieldCheck className="w-6 h-6 text-[#3f3f46] mb-2" />
                   <span className="text-[13px] text-[#a1a1aa]">No evidence generated yet.</span>
-                  <span className="text-[11px] text-[#71717a] mt-1">Tests and quality gates will run after implementation.</span>
+                  <span className="text-[11px] text-[#71717a] mt-1">Quality gates will run during implementation.</span>
                 </div>
               )}
             </section>
