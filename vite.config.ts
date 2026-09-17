@@ -119,6 +119,14 @@ function aiSdlcApiPlugin() {
             const artifacts = await getArtifacts();
             const trajectory = await getTrajectory(branch);
 
+            let stateData = {};
+            try {
+              const statePath = path.join(projectRoot, '.ai-sdlc', 'ui-state.json');
+              if (fs.existsSync(statePath)) {
+                stateData = JSON.parse(fs.readFileSync(statePath, 'utf8'));
+              }
+            } catch(e) {}
+
             const mappedSessions = sessions.map(s => ({ ...s, active: s.branch === branch }));
 
             if (!loopScript && !backboneScript) {
@@ -132,28 +140,31 @@ function aiSdlcApiPlugin() {
                 sessions: mappedSessions,
                 artifacts,
                 trajectory,
-                ...repoData
+                ...repoData,
+                ...stateData
               });
             }
 
             try {
               let stdout = '';
-              let stageIndex = 1;
-              let status = 'awaiting_approval';
+              let stageIndex = stateData.stageIndex ?? 1;
+              let status = stateData.status ?? 'awaiting_approval';
 
-              if (profile === 'loop' && loopScript) {
-                const result = await execAsync(`python3 "${loopScript}" status --feature "${branch}"`, { cwd: projectRoot });
-                stdout = result.stdout;
-                if (stdout.includes('Verify')) stageIndex = 4;
-                else if (stdout.includes('Implement')) stageIndex = 2;
-                else if (stdout.includes('Commit')) stageIndex = 5;
-              } else if (profile === 'backbone' && backboneScript) {
-                const result = await execAsync(`python3 "${backboneScript}" --state-check --feature "${branch}"`, { cwd: projectRoot });
-                stdout = result.stdout;
-                if (stdout.includes('plan')) stageIndex = 3;
-                else if (stdout.includes('implement')) stageIndex = 4;
-                else if (stdout.includes('verify')) stageIndex = 5;
-                else if (stdout.includes('handoff')) stageIndex = 6;
+              if (!stateData.status) {
+                if (profile === 'loop' && loopScript) {
+                  const result = await execAsync(`python3 "${loopScript}" status --feature "${branch}"`, { cwd: projectRoot });
+                  stdout = result.stdout;
+                  if (stdout.includes('Verify')) stageIndex = 4;
+                  else if (stdout.includes('Implement')) stageIndex = 2;
+                  else if (stdout.includes('Commit')) stageIndex = 5;
+                } else if (profile === 'backbone' && backboneScript) {
+                  const result = await execAsync(`python3 "${backboneScript}" --state-check --feature "${branch}"`, { cwd: projectRoot });
+                  stdout = result.stdout;
+                  if (stdout.includes('plan')) stageIndex = 3;
+                  else if (stdout.includes('implement')) stageIndex = 4;
+                  else if (stdout.includes('verify')) stageIndex = 5;
+                  else if (stdout.includes('handoff')) stageIndex = 6;
+                }
               }
 
               return sendJSON({
@@ -167,13 +178,14 @@ function aiSdlcApiPlugin() {
                 sessions: mappedSessions,
                 artifacts,
                 trajectory,
-                ...repoData
+                ...repoData,
+                ...stateData
               });
             } catch (err) {
               return sendJSON({
                 profile,
-                status: 'empty',
-                stageIndex: 0,
+                status: stateData.status ?? 'empty',
+                stageIndex: stateData.stageIndex ?? 0,
                 connected: true,
                 projectName,
                 branch,
@@ -181,7 +193,8 @@ function aiSdlcApiPlugin() {
                 sessions: mappedSessions,
                 artifacts,
                 trajectory,
-                ...repoData
+                ...repoData,
+                ...stateData
               });
             }
           } catch (err) {

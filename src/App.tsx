@@ -22,6 +22,7 @@ export default function App() {
   const [sessions, setSessions] = useState<{branch: string, subject: string, active: boolean}[]>([]);
   const [trajectory, setTrajectory] = useState<{hash: string, message: string, time: string}[]>([]);
   const [artifacts, setArtifacts] = useState<{name: string, path: string, type: string}[]>([]);
+  const [scope, setScope] = useState<{action?: string, allowedPaths?: string[], criteria?: string[]}>({});
 
   const fetchState = async () => {
     try {
@@ -38,6 +39,7 @@ export default function App() {
       setSessions(data.sessions || []);
       setTrajectory(data.trajectory || []);
       setArtifacts(data.artifacts || []);
+      setScope(data.scope || {});
     } catch (err) {
       setIsConnected(false);
     }
@@ -60,11 +62,30 @@ export default function App() {
 
   const stages = profile === 'loop' ? LOOP_STAGES : ['Request', 'Explore', 'Specify', 'Plan', 'Implement', 'Verify', 'Handoff'];
 
+  const [prompt, setPrompt] = useState('');
+
   const handleApprove = async () => {
     await fetch('/api/action', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'approve' })
+      body: JSON.stringify({ action: 'approve', feature: sessions.find(s => s.active)?.branch })
+    });
+    fetchState();
+  };
+
+  const handleSubmit = async () => {
+    if (!prompt.trim()) return;
+    const branch = sessions.find(s => s.active)?.branch;
+    const currentPrompt = prompt;
+    setPrompt('');
+    
+    // Optimistic UI update
+    setRequestText(currentPrompt);
+    
+    await fetch('/api/action', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'submit', feature: branch, request: currentPrompt })
     });
     fetchState();
   };
@@ -247,6 +268,14 @@ export default function App() {
         <div className="p-4 bg-[#141417] border-t border-[#27272a]">
           <div className="max-w-4xl mx-auto relative bg-[#1f1f22] border border-[#3f3f46] focus-within:border-indigo-500 rounded-xl overflow-hidden transition-colors shadow-sm">
             <textarea 
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  handleSubmit();
+                }
+              }}
               placeholder="Ask a question or specify constraints for this session..." 
               className="w-full bg-transparent text-[#ededef] text-sm p-4 min-h-[100px] resize-none focus:outline-none placeholder:text-[#71717a]"
             ></textarea>
@@ -257,10 +286,16 @@ export default function App() {
                 </button>
               </div>
               <div className="flex items-center gap-2">
-                <button className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-md text-[#a1a1aa] hover:bg-[#27272a] transition-colors">
-                  Cancel
+                <button 
+                  onClick={() => setPrompt('')}
+                  className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-md text-[#a1a1aa] hover:bg-[#27272a] transition-colors"
+                >
+                  Clear
                 </button>
-                <button className="flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium px-4 py-1.5 rounded-md transition-colors shadow-sm">
+                <button 
+                  onClick={handleSubmit}
+                  className="flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium px-4 py-1.5 rounded-md transition-colors shadow-sm"
+                >
                   <Play className="w-3.5 h-3.5" /> Send
                 </button>
               </div>
@@ -334,9 +369,22 @@ export default function App() {
                 <div>
                   <div className="text-[#a1a1aa] text-[12px] mb-1.5 font-medium">Modified Paths</div>
                   <div className="bg-[#1f1f22] border border-[#27272a] rounded-md px-3 py-2 text-[#d4d4d8] font-mono text-[12px] shadow-sm">
-                    {diffFiles.length > 0 ? diffFiles.map(f => <div key={f}>{f}</div>) : <span className="text-[#71717a]">No files modified</span>}
+                    {(scope.allowedPaths || diffFiles).length > 0 ? (scope.allowedPaths || diffFiles).map(f => <div key={f}>{f}</div>) : <span className="text-[#71717a]">No files modified</span>}
                   </div>
                 </div>
+                {scope.criteria && scope.criteria.length > 0 && (
+                  <div>
+                    <div className="text-[#a1a1aa] text-[12px] mb-1.5 font-medium">Acceptance Criteria</div>
+                    <div className="bg-[#1f1f22] border border-[#27272a] rounded-md px-3 py-2 text-[#d4d4d8] text-[12px] shadow-sm space-y-1">
+                      {scope.criteria.map((c, i) => (
+                         <div key={i} className="flex gap-2">
+                           <span className="text-indigo-400">•</span>
+                           <span>{c}</span>
+                         </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 <div>
                   <div className="text-[#a1a1aa] text-[12px] mb-1.5 font-medium">Goal Context</div>
                   <div className="bg-[#1f1f22] border border-[#27272a] rounded-md px-4 py-3 text-[#d4d4d8] text-[13px] shadow-sm">
