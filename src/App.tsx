@@ -25,6 +25,7 @@ export default function App() {
   const [requestText, setRequestText] = useState('Loading request...');
   const [diffText, setDiffText] = useState('');
   const [diffFiles, setDiffFiles] = useState<string[]>([]);
+  const [sessions, setSessions] = useState<{branch: string, subject: string, active: boolean}[]>([]);
 
   // Production-ready data fetching adapter
   useEffect(() => {
@@ -40,6 +41,7 @@ export default function App() {
         setRequestText(data.requestText || 'No request description');
         setDiffText(data.diffText || '');
         setDiffFiles(data.files || []);
+        setSessions(data.sessions || []);
       } catch (err) {
         setIsConnected(false);
       }
@@ -105,37 +107,27 @@ export default function App() {
           
           <div className="text-[11px] font-semibold text-[#71717a] mb-2 uppercase tracking-wider px-1">Active Sessions</div>
           <div className="space-y-0.5 mb-6">
-            <div className="flex items-start gap-2.5 p-2 rounded-md bg-[#27272a]/50 border border-[#3f3f46]/50 cursor-pointer">
-              <div className="mt-0.5 relative flex items-center justify-center">
-                <Activity className="w-4 h-4 text-amber-500" />
-                <span className="absolute w-2 h-2 rounded-full bg-amber-500 animate-ping opacity-20"></span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="text-sm font-medium truncate text-amber-50">Webhook idempotency</div>
-                <div className="text-[11px] text-[#a1a1aa] mt-0.5 flex items-center gap-1.5">
-                  <span className="bg-[#1f1f22] border border-[#3f3f46] px-1 rounded text-[10px] uppercase font-semibold">Loop</span>
-                  <span>Awaiting</span>
+            {sessions.length > 0 ? sessions.map((s, i) => (
+              <div key={i} className={`flex items-start gap-2.5 p-2 rounded-md cursor-pointer transition-colors ${s.active ? 'bg-[#27272a]/50 border border-[#3f3f46]/50' : 'hover:bg-[#1f1f22]'}`}>
+                {s.active ? (
+                  <div className="mt-0.5 relative flex items-center justify-center">
+                    <Activity className="w-4 h-4 text-amber-500" />
+                    <span className="absolute w-2 h-2 rounded-full bg-amber-500 animate-ping opacity-20"></span>
+                  </div>
+                ) : (
+                  <GitBranch className="w-4 h-4 text-[#71717a] mt-0.5" />
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className={`text-sm font-medium truncate ${s.active ? 'text-amber-50' : 'text-[#d4d4d8]'}`}>{s.subject}</div>
+                  <div className="text-[11px] text-[#a1a1aa] mt-0.5 flex items-center gap-1.5">
+                    {s.active && <span className="bg-[#1f1f22] border border-[#3f3f46] px-1 rounded text-[10px] uppercase font-semibold">{profile}</span>}
+                    <span className="truncate">{s.branch}</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </div>
-
-          <div className="text-[11px] font-semibold text-[#71717a] mb-2 uppercase tracking-wider px-1">Recent</div>
-          <div className="space-y-0.5">
-            <div className="flex items-start gap-2.5 p-2 rounded-md hover:bg-[#1f1f22] cursor-pointer transition-colors group">
-              <CheckCircle2 className="w-4 h-4 text-[#22c55e] mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm truncate text-[#d4d4d8] group-hover:text-white transition-colors">Update README</div>
-                <div className="text-[11px] text-[#71717a] mt-0.5">Backbone • 2h ago</div>
-              </div>
-            </div>
-            <div className="flex items-start gap-2.5 p-2 rounded-md hover:bg-[#1f1f22] cursor-pointer transition-colors group">
-              <CheckCircle2 className="w-4 h-4 text-[#22c55e] mt-0.5" />
-              <div className="flex-1 min-w-0">
-                <div className="text-sm truncate text-[#d4d4d8] group-hover:text-white transition-colors">Fix validation bug</div>
-                <div className="text-[11px] text-[#71717a] mt-0.5">Loop • Yesterday</div>
-              </div>
-            </div>
+            )) : (
+              <div className="text-xs text-[#71717a] px-2 italic">No branches found</div>
+            )}
           </div>
         </div>
 
@@ -423,18 +415,16 @@ export default function App() {
                   <div className="bg-[#1f1f22] border border-[#27272a] rounded-md px-3 py-2 text-[#ededef] text-[13px] shadow-sm">Implement & Verify</div>
                 </div>
                 <div>
-                  <div className="text-[#a1a1aa] text-[12px] mb-1.5 font-medium">Allowed Paths</div>
+                  <div className="text-[#a1a1aa] text-[12px] mb-1.5 font-medium">Modified Paths</div>
                   <div className="bg-[#1f1f22] border border-[#27272a] rounded-md px-3 py-2 text-[#d4d4d8] font-mono text-[12px] shadow-sm">
-                    src/webhook.js<br/>
-                    <span className="text-[#71717a]">tests/webhook.test.js</span>
+                    {diffFiles.length > 0 ? diffFiles.map(f => <div key={f}>{f}</div>) : <span className="text-[#71717a]">No files modified</span>}
                   </div>
                 </div>
                 <div>
-                  <div className="text-[#a1a1aa] text-[12px] mb-1.5 font-medium">Acceptance Criteria</div>
-                  <ul className="bg-[#1f1f22] border border-[#27272a] rounded-md px-4 py-3 text-[#d4d4d8] text-[13px] shadow-sm space-y-2 list-disc list-inside">
-                    <li className="leading-snug">Duplicate webhook IDs return 200 OK without processing</li>
-                    <li className="leading-snug">Public API contract unchanged</li>
-                  </ul>
+                  <div className="text-[#a1a1aa] text-[12px] mb-1.5 font-medium">Goal Context</div>
+                  <div className="bg-[#1f1f22] border border-[#27272a] rounded-md px-4 py-3 text-[#d4d4d8] text-[13px] shadow-sm">
+                    {requestText.split('\n')[0]}
+                  </div>
                 </div>
               </div>
             </section>
@@ -447,13 +437,16 @@ export default function App() {
                 <h3 className="text-[11px] font-bold text-[#71717a] uppercase tracking-wider">Context Sources</h3>
               </div>
               <div className="space-y-2">
-                <div className="bg-[#1f1f22] border border-[#27272a] rounded-md p-3 shadow-sm hover:border-[#3f3f46] transition-colors cursor-default">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="font-mono text-[12px] text-[#ededef] truncate">src/webhook.js</span>
-                    <span className="text-[#22c55e] bg-[#22c55e]/10 border border-[#22c55e]/20 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide">Fresh</span>
+                {diffFiles.length > 0 ? diffFiles.map(f => (
+                  <div key={f} className="bg-[#1f1f22] border border-[#27272a] rounded-md p-3 shadow-sm hover:border-[#3f3f46] transition-colors cursor-default">
+                    <div className="flex justify-between items-start mb-2">
+                      <span className="font-mono text-[12px] text-[#ededef] truncate" title={f}>{f.split('/').pop() || f}</span>
+                      <span className="text-[#22c55e] bg-[#22c55e]/10 border border-[#22c55e]/20 px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wide">Loaded</span>
+                    </div>
                   </div>
-                  <div className="text-[11px] text-[#71717a]">Loaded via Explore stage based on search heuristic</div>
-                </div>
+                )) : (
+                  <div className="text-[#71717a] text-[12px] italic">No active sources</div>
+                )}
               </div>
             </section>
 
@@ -472,18 +465,7 @@ export default function App() {
                       <ShieldCheck className="w-4 h-4 text-[#22c55e]" />
                       <span className="font-semibold text-[13px] text-[#ededef]">Engineering Quality Gate</span>
                     </div>
-                    <div className="text-[#a1a1aa] font-mono text-[12px] bg-[#0e0e11] p-2 rounded border border-[#27272a]">0 High, 0 Medium findings</div>
-                  </div>
-                  <div className="bg-[#1f1f22] border border-[#27272a] rounded-md p-3 shadow-sm">
-                    <div className="flex items-center gap-2 mb-2">
-                      <CheckCircle2 className="w-4 h-4 text-[#22c55e]" />
-                      <span className="font-semibold text-[13px] text-[#ededef] truncate">npm test webhook.test.js</span>
-                    </div>
-                    <div className="text-[#a1a1aa] font-mono text-[11px] bg-[#0e0e11] p-2 rounded border border-[#27272a] leading-relaxed">
-                      <span className="text-[#22c55e]">PASS</span> tests/webhook.test.js<br/>
-                      <span className="text-[#22c55e]">✓</span> process event <span className="text-[#71717a]">(12ms)</span><br/>
-                      <span className="text-[#22c55e]">✓</span> ignore duplicate <span className="text-[#71717a]">(8ms)</span>
-                    </div>
+                    <div className="text-[#a1a1aa] font-mono text-[12px] bg-[#0e0e11] p-2 rounded border border-[#27272a]">Analyzed via Pre-commit hooks</div>
                   </div>
                 </div>
               ) : (
