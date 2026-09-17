@@ -22,6 +22,9 @@ export default function App() {
   const [isInspectorOpen, setIsInspectorOpen] = useState(true);
   const [isConnected, setIsConnected] = useState(false);
   const [projectName, setProjectName] = useState('loading...');
+  const [requestText, setRequestText] = useState('Loading request...');
+  const [diffText, setDiffText] = useState('');
+  const [diffFiles, setDiffFiles] = useState<string[]>([]);
 
   // Production-ready data fetching adapter
   useEffect(() => {
@@ -34,6 +37,9 @@ export default function App() {
         setStageIndex(data.stageIndex);
         setIsConnected(data.connected);
         setProjectName(data.projectName);
+        setRequestText(data.requestText || 'No request description');
+        setDiffText(data.diffText || '');
+        setDiffFiles(data.files || []);
       } catch (err) {
         setIsConnected(false);
       }
@@ -262,7 +268,7 @@ export default function App() {
               <div className="flex gap-4">
                 <div className="w-8 h-8 rounded-md bg-[#27272a] border border-[#3f3f46] flex items-center justify-center flex-shrink-0 text-[#ededef] font-medium text-sm shadow-sm">U</div>
                 <div className="pt-1.5 text-sm text-[#d4d4d8] leading-relaxed">
-                  <p>Add idempotent webhook processing without changing the public API.</p>
+                  <p className="whitespace-pre-wrap">{requestText}</p>
                 </div>
               </div>
               
@@ -272,7 +278,7 @@ export default function App() {
                 </div>
                 <div className="pt-1 w-full">
                   <div className="text-sm text-[#d4d4d8] leading-relaxed mb-4">
-                    I've examined the <code className="bg-[#1f1f22] border border-[#27272a] px-1.5 py-0.5 rounded text-[13px] font-mono text-[#3b82f6]">src/webhook.js</code> file. I plan to use the <code>x-event-id</code> header to check a local store before processing.
+                    I've examined the repository and prepared the workspace.
                   </div>
                   
                   <div className="bg-[#141417] border border-[#27272a] rounded-lg p-4 shadow-sm">
@@ -301,67 +307,29 @@ export default function App() {
                 <div className="bg-[#1f1f22] px-4 py-2.5 border-b border-[#27272a] flex justify-between items-center">
                   <div className="flex items-center gap-2">
                     <FileDiff className="w-4 h-4 text-[#a1a1aa]" />
-                    <span className="font-mono text-[13px] text-[#ededef]">src/webhook.js</span>
+                    <span className="font-mono text-[13px] text-[#ededef]">
+                       {diffFiles.length > 0 ? diffFiles.join(', ') : 'No files changed yet'}
+                    </span>
                   </div>
                   <span className="text-[#22c55e] bg-[#22c55e]/10 px-2 py-0.5 rounded text-[11px] font-medium border border-[#22c55e]/20 flex items-center gap-1">
-                    <CheckCircle2 className="w-3 h-3" /> Allowed path
+                    <CheckCircle2 className="w-3 h-3" /> Bounded
                   </span>
                 </div>
-                <div className="bg-[#0e0e11] font-mono text-[13px] overflow-x-auto">
-                  {stageIndex >= 3 ? (
-                    <table className="w-full border-collapse text-left whitespace-pre">
-                      <tbody>
-                        <tr className="bg-red-500/10 text-red-400">
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">12</td>
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">-</td>
-                          <td className="px-4 py-0.5">- app.post('/webhook', (req, res) =&gt; {'{'}</td>
-                        </tr>
-                        <tr className="bg-red-500/10 text-red-400">
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">13</td>
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">-</td>
-                          <td className="px-4 py-0.5">-   processEvent(req.body);</td>
-                        </tr>
-                        <tr className="bg-green-500/10 text-green-400">
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">+</td>
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">12</td>
-                          <td className="px-4 py-0.5">+ app.post('/webhook', <span className="text-[#c084fc]">async</span> (req, res) =&gt; {'{'}</td>
-                        </tr>
-                        <tr className="bg-green-500/10 text-green-400">
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">+</td>
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">13</td>
-                          <td className="px-4 py-0.5">+   <span className="text-[#c084fc]">const</span> eventId = req.headers[<span className="text-[#a3e635]">'x-event-id'</span>];</td>
-                        </tr>
-                        <tr className="bg-green-500/10 text-green-400">
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">+</td>
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">14</td>
-                          <td className="px-4 py-0.5">+   <span className="text-[#c084fc]">if</span> (<span className="text-[#c084fc]">await</span> isProcessed(eventId)) <span className="text-[#c084fc]">return</span> res.status(200).send(<span className="text-[#a3e635]">'OK'</span>);</td>
-                        </tr>
-                        <tr className="bg-green-500/10 text-green-400">
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">+</td>
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">15</td>
-                          <td className="px-4 py-0.5">+   <span className="text-[#c084fc]">await</span> processEvent(req.body);</td>
-                        </tr>
-                        <tr className="bg-green-500/10 text-green-400">
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">+</td>
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">16</td>
-                          <td className="px-4 py-0.5">+   <span className="text-[#c084fc]">await</span> markProcessed(eventId);</td>
-                        </tr>
-                        <tr className="text-[#a1a1aa] hover:bg-[#1f1f22]">
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">14</td>
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">17</td>
-                          <td className="px-4 py-0.5">    res.status(200).send(<span className="text-[#a3e635]">'OK'</span>);</td>
-                        </tr>
-                        <tr className="text-[#a1a1aa] hover:bg-[#1f1f22]">
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">15</td>
-                          <td className="w-8 text-center text-[#71717a] select-none border-r border-[#27272a] py-0.5">18</td>
-                          <td className="px-4 py-0.5">  {'}'});</td>
-                        </tr>
-                      </tbody>
-                    </table>
+                <div className="bg-[#0e0e11] font-mono text-[13px] overflow-x-auto p-4">
+                  {diffText ? (
+                    <pre className="text-[#a1a1aa] whitespace-pre-wrap">
+                      {diffText.split('\n').map((line, i) => {
+                        let color = 'text-[#a1a1aa]';
+                        if (line.startsWith('+')) color = 'text-green-400';
+                        if (line.startsWith('-')) color = 'text-red-400';
+                        if (line.startsWith('@@')) color = 'text-blue-400';
+                        return <div key={i} className={color}>{line}</div>;
+                      })}
+                    </pre>
                   ) : (
-                    <div className="p-8 flex flex-col items-center justify-center text-center">
+                    <div className="py-8 flex flex-col items-center justify-center text-center">
                       <FileDiff className="w-8 h-8 text-[#3f3f46] mb-3" />
-                      <span className="text-[#a1a1aa] text-sm">No diff available yet. Awaiting implementation approval.</span>
+                      <span className="text-[#a1a1aa] text-sm">No diff available.</span>
                     </div>
                   )}
                 </div>

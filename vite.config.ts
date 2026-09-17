@@ -53,6 +53,26 @@ function aiSdlcApiPlugin() {
           }
         };
 
+        const getRepoData = async (branch) => {
+          let requestText = 'Loading...';
+          let diffText = '';
+          let files = [];
+          try {
+             // Try to get uncommitted diff or diff against main
+             const { stdout: diffOut } = await execAsync('git diff HEAD~1', { cwd: projectRoot });
+             diffText = diffOut;
+             
+             const { stdout: nameOut } = await execAsync('git log -1 --pretty=%B', { cwd: projectRoot });
+             requestText = nameOut.trim();
+
+             const { stdout: filesOut } = await execAsync('git diff HEAD~1 --name-only', { cwd: projectRoot });
+             files = filesOut.split('\n').filter(Boolean);
+          } catch (e) {
+             requestText = 'No request context available.';
+          }
+          return { requestText, diffText, files };
+        };
+
         if (req.method === 'GET' && req.url === '/api/session') {
           try {
             const { loopScript, backboneScript } = getScripts();
@@ -60,6 +80,7 @@ function aiSdlcApiPlugin() {
             const projectName = path.basename(projectRoot);
             
             const profile = loopScript ? 'loop' : (backboneScript ? 'backbone' : 'loop');
+            const repoData = await getRepoData(branch);
 
             if (!loopScript && !backboneScript) {
               return sendJSON({
@@ -68,7 +89,8 @@ function aiSdlcApiPlugin() {
                 stageIndex: 0,
                 connected: false,
                 projectName,
-                branch
+                branch,
+                ...repoData
               });
             }
 
@@ -93,13 +115,14 @@ function aiSdlcApiPlugin() {
               }
 
               return sendJSON({
-                profile: 'loop',
-                status: status,
+                profile,
+                status,
                 stageIndex,
                 connected: true,
                 projectName,
                 branch,
-                rawStatus: stdout
+                rawStatus: stdout,
+                ...repoData
               });
             } catch (err) {
               // If status fails (e.g., no feature state yet)
