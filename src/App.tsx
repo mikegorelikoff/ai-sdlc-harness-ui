@@ -26,30 +26,43 @@ export default function App() {
   const [diffText, setDiffText] = useState('');
   const [diffFiles, setDiffFiles] = useState<string[]>([]);
   const [sessions, setSessions] = useState<{branch: string, subject: string, active: boolean}[]>([]);
+  const [trajectory, setTrajectory] = useState<{hash: string, message: string, time: string}[]>([]);
+  const [artifacts, setArtifacts] = useState<{name: string, path: string, type: string}[]>([]);
 
-  // Production-ready data fetching adapter
+  const fetchState = async () => {
+    try {
+      const res = await fetch('/api/session');
+      const data = await res.json();
+      setProfile(data.profile);
+      setStatus(data.status);
+      setStageIndex(data.stageIndex);
+      setIsConnected(data.connected);
+      setProjectName(data.projectName);
+      setRequestText(data.requestText || 'No request description');
+      setDiffText(data.diffText || '');
+      setDiffFiles(data.files || []);
+      setSessions(data.sessions || []);
+      setTrajectory(data.trajectory || []);
+      setArtifacts(data.artifacts || []);
+    } catch (err) {
+      setIsConnected(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchState = async () => {
-      try {
-        const res = await fetch('/api/session');
-        const data = await res.json();
-        setProfile(data.profile);
-        setStatus(data.status);
-        setStageIndex(data.stageIndex);
-        setIsConnected(data.connected);
-        setProjectName(data.projectName);
-        setRequestText(data.requestText || 'No request description');
-        setDiffText(data.diffText || '');
-        setDiffFiles(data.files || []);
-        setSessions(data.sessions || []);
-      } catch (err) {
-        setIsConnected(false);
-      }
-    };
     fetchState();
-    const interval = setInterval(fetchState, 1000); // Polling for state updates
+    const interval = setInterval(fetchState, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  const switchBranch = async (branch: string) => {
+    await fetch('/api/switch-branch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ branch })
+    });
+    await fetchState();
+  };
 
   const stages = profile === 'loop' ? LOOP_STAGES : ['Request', 'Explore', 'Specify', 'Plan', 'Implement', 'Verify', 'Handoff'];
 
@@ -108,7 +121,11 @@ export default function App() {
           <div className="text-[11px] font-semibold text-[#71717a] mb-2 uppercase tracking-wider px-1">Active Sessions</div>
           <div className="space-y-0.5 mb-6">
             {sessions.length > 0 ? sessions.map((s, i) => (
-              <div key={i} className={`flex items-start gap-2.5 p-2 rounded-md cursor-pointer transition-colors ${s.active ? 'bg-[#27272a]/50 border border-[#3f3f46]/50' : 'hover:bg-[#1f1f22]'}`}>
+              <div 
+                key={i} 
+                onClick={() => !s.active && switchBranch(s.branch)}
+                className={`flex items-start gap-2.5 p-2 rounded-md cursor-pointer transition-colors ${s.active ? 'bg-[#27272a]/50 border border-[#3f3f46]/50' : 'hover:bg-[#1f1f22]'}`}
+              >
                 {s.active ? (
                   <div className="mt-0.5 relative flex items-center justify-center">
                     <Activity className="w-4 h-4 text-amber-500" />
@@ -332,39 +349,36 @@ export default function App() {
           {activeTab === 'Trajectory' && (
             <div className="max-w-3xl mx-auto space-y-6">
               <div className="relative border-l-2 border-[#27272a] ml-4 pl-8 py-2">
-                
-                <div className="relative mb-10">
-                  <div className="absolute -left-[43px] top-1 w-8 h-8 rounded-full bg-[#141417] border-2 border-[#27272a] flex items-center justify-center shadow-sm">
-                    <Terminal className="w-3.5 h-3.5 text-[#a1a1aa]"/>
-                  </div>
-                  <div className="text-sm">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="font-semibold text-[#ededef]">grep_search</span>
-                      <span className="text-[11px] font-mono text-[#71717a] bg-[#1f1f22] px-1.5 py-0.5 rounded border border-[#27272a]">Exit 0</span>
-                      <span className="text-[11px] text-[#71717a]">2.4s</span>
-                    </div>
-                    <div className="bg-[#141417] p-3 rounded-lg border border-[#27272a] font-mono text-[12px] text-[#a1a1aa] shadow-sm">
-                      <span className="text-[#60a5fa]">Query:</span> app.post('/webhook'<br/>
-                      <span className="text-[#60a5fa]">Path:</span> src/
-                    </div>
-                  </div>
-                </div>
-
-                <div className="relative">
-                  <div className="absolute -left-[43px] top-1 w-8 h-8 rounded-full bg-[#22c55e]/10 border-2 border-[#22c55e]/20 flex items-center justify-center shadow-sm">
-                    <ShieldCheck className="w-3.5 h-3.5 text-[#22c55e]"/>
-                  </div>
-                  <div className="text-sm">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="font-semibold text-[#ededef]">Scope enforcement</span>
-                      <span className="text-[11px] font-mono text-[#22c55e] bg-[#22c55e]/10 px-1.5 py-0.5 rounded border border-[#22c55e]/20">Pass</span>
-                    </div>
-                    <p className="text-[#a1a1aa] bg-[#141417] p-3 rounded-lg border border-[#27272a] text-[13px] shadow-sm">
-                      Paths bounded strictly to <code className="text-[#3b82f6] bg-[#1f1f22] px-1 py-0.5 rounded border border-[#27272a] font-mono text-[11px]">src/webhook.js</code>
-                    </p>
+                <div className="p-6">
+                  <h2 className="text-lg font-semibold text-[#ededef] mb-6 flex items-center gap-2">
+                    <Activity className="w-5 h-5 text-indigo-400" />
+                    Recent History
+                  </h2>
+                  
+                  <div className="max-w-3xl">
+                    {trajectory.length > 0 ? trajectory.map((item, idx) => (
+                      <div key={item.hash} className="relative mb-8 last:mb-0">
+                        {idx !== trajectory.length - 1 && <div className="absolute top-8 left-3.5 bottom-[-2rem] w-px bg-[#27272a]"></div>}
+                        <div className="flex gap-4 relative">
+                          <div className="w-7 h-7 rounded-full bg-[#1f1f22] border border-[#3f3f46] flex items-center justify-center flex-shrink-0 z-10 text-[10px] text-[#a1a1aa] font-mono shadow-sm">
+                            {item.hash.slice(0, 4)}
+                          </div>
+                          <div className="pt-1.5 flex-1">
+                            <div className="flex items-baseline justify-between mb-2">
+                              <span className="text-sm font-semibold text-[#ededef]">Git Commit</span>
+                              <span className="text-[11px] text-[#71717a] font-mono">{item.time}</span>
+                            </div>
+                            <div className="bg-[#141417] border border-[#27272a] rounded-lg p-3.5 shadow-sm text-sm text-[#d4d4d8] font-mono whitespace-pre-wrap">
+                              {item.message}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )) : (
+                      <div className="text-sm text-[#71717a] italic">No recent history available</div>
+                    )}
                   </div>
                 </div>
-
               </div>
             </div>
           )}
