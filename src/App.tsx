@@ -1,8 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   Folder, Play, Search, Activity, Archive, LayoutTemplate, Settings, CheckCircle2, 
-  Clock, AlertCircle, AlertTriangle, FileCode2, Terminal, ShieldCheck,
-  ChevronRight, ArrowRight, Github, Cpu, GitBranch, ShieldAlert, FileDiff, Zap
+  Clock, AlertCircle, FileCode2, Terminal, ShieldCheck,
+  ChevronRight, ArrowRight, Cpu, GitBranch, ShieldAlert, FileDiff, Zap
 } from 'lucide-react';
 
 type Profile = 'loop' | 'backbone';
@@ -12,6 +12,8 @@ const LOOP_STAGES = [
   'Specify', 'Implementation approval', 'Implement', 
   'Engineering Quality Gate', 'Verify', 'Commit approval', 'Commit'
 ];
+
+export default function App() {
 
   const [profile, setProfile] = useState<Profile>('loop');
   const [status, setStatus] = useState<Status>('empty');
