@@ -82,6 +82,31 @@ function aiSdlcApiPlugin() {
           }
         };
 
+        const getTrajectory = async (branch) => {
+          try {
+            const { stdout } = await execAsync('git log -n 5 --pretty=format:"%h|%s|%ar"', { cwd: projectRoot });
+            return stdout.split('\n').filter(Boolean).map(line => {
+              const [hash, message, time] = line.split('|');
+              return { hash, message, time };
+            });
+          } catch (e) {
+            return [];
+          }
+        };
+
+        const getArtifacts = async () => {
+          try {
+            const { stdout } = await execAsync('find .ai-sdlc .ai-sdlc-loop .agents -name "*.toon" -o -name "*.md" -type f 2>/dev/null | head -n 10', { cwd: projectRoot });
+            return stdout.split('\n').filter(Boolean).map(f => ({
+              name: path.basename(f),
+              path: f,
+              type: f.endsWith('.toon') ? 'TOON Spec' : 'Markdown'
+            }));
+          } catch (e) {
+            return [];
+          }
+        };
+
         if (req.method === 'GET' && req.url === '/api/session') {
           try {
             const { loopScript, backboneScript } = getScripts();
@@ -91,8 +116,9 @@ function aiSdlcApiPlugin() {
             const profile = loopScript ? 'loop' : (backboneScript ? 'backbone' : 'loop');
             const repoData = await getRepoData(branch);
             const sessions = await getSessions();
+            const artifacts = await getArtifacts();
+            const trajectory = await getTrajectory(branch);
 
-            // Mark current active
             const mappedSessions = sessions.map(s => ({ ...s, active: s.branch === branch }));
 
             if (!loopScript && !backboneScript) {
@@ -104,6 +130,8 @@ function aiSdlcApiPlugin() {
                 projectName,
                 branch,
                 sessions: mappedSessions,
+                artifacts,
+                trajectory,
                 ...repoData
               });
             }
@@ -137,10 +165,11 @@ function aiSdlcApiPlugin() {
                 branch,
                 rawStatus: stdout,
                 sessions: mappedSessions,
+                artifacts,
+                trajectory,
                 ...repoData
               });
             } catch (err) {
-              // If status fails (e.g., no feature state yet)
               return sendJSON({
                 profile,
                 status: 'empty',
@@ -150,6 +179,8 @@ function aiSdlcApiPlugin() {
                 branch,
                 rawStatus: 'No active state found for this feature.',
                 sessions: mappedSessions,
+                artifacts,
+                trajectory,
                 ...repoData
               });
             }
@@ -158,15 +189,30 @@ function aiSdlcApiPlugin() {
           }
         }
 
+        if (req.method === 'POST' && req.url === '/api/switch-branch') {
+          let body = '';
+          req.on('data', chunk => body += chunk);
+          req.on('end', async () => {
+            try {
+              const { branch } = JSON.parse(body);
+              await execAsync(`git checkout ${branch}`, { cwd: projectRoot });
+              return sendJSON({ success: true });
+            } catch (e) {
+              return sendJSON({ error: e.message }, 500);
+            }
+          });
+          return;
+        }
+
         if (req.method === 'POST' && req.url === '/api/action') {
            let body = '';
            req.on('data', chunk => body += chunk);
            req.on('end', async () => {
              try {
-               const { action } = JSON.parse(body);
+               const { action, feature, request } = JSON.parse(body);
                const { loopScript, backboneScript } = getScripts();
-               const branch = await getCurrentBranch();
-               const profile = loopScript ? 'loop' : (backboneScript ? 'backbone' : 'loop');
+               const branch = feature || await getCurrentBranch();
+               const profile = loopScript ? 'loop' : 'backbone';
 
                if (!loopScript && !backboneScript) {
                  return sendJSON({ error: 'Not connected to Loop or Backbone environment.' }, 400);
@@ -177,11 +223,20 @@ function aiSdlcApiPlugin() {
                    if (profile === 'loop' && loopScript) {
                      await execAsync(`python3 "${loopScript}" approve --feature "${branch}" --decision approved`, { cwd: projectRoot });
                    } else if (profile === 'backbone' && backboneScript) {
-                     // Simulated backbone approval (typically backbone relies on step transitions)
                      await execAsync(`python3 "${backboneScript}" --complete-state --feature "${branch}"`, { cwd: projectRoot });
                    }
                  } catch (e) {
                    console.log('Approve command output:', e.message);
+                 }
+               } else if (action === 'submit' && request) {
+                 try {
+                   if (profile === 'loop' && loopScript) {
+                     await execAsync(`python3 "${loopScript}" specify --feature "${branch}" --request "${request.replace(/"/g, '\\"')}" --allow "*"`, { cwd: projectRoot });
+                   } else if (profile === 'backbone' && backboneScript) {
+                     await execAsync(`python3 "${backboneScript}" --goal "${request.replace(/"/g, '\\"')}" --feature "${branch}"`, { cwd: projectRoot });
+                   }
+                 } catch (e) {
+                   console.log('Submit command output:', e.message);
                  }
                }
                return sendJSON({ success: true });
