@@ -27,13 +27,21 @@ function aiSdlcApiPlugin() {
           res.end(JSON.stringify(data));
         };
 
-        const getLoopScript = () => {
-          const possiblePaths = [
+        const getScripts = () => {
+          const loopPaths = [
             path.join(projectRoot, '.agents', 'skills', 'ai-sdlc-loop-shared-runtime', 'scripts', 'loop.py'),
             path.join(projectRoot, '.ai-sdlc-loop', 'skills', 'ai-sdlc-loop-shared-runtime', 'scripts', 'loop.py'),
             path.join(projectRoot, 'products', 'ai-sdlc-loop', 'skills', 'ai-sdlc-loop-shared-runtime', 'scripts', 'loop.py')
           ];
-          return possiblePaths.find(p => fs.existsSync(p));
+          const backbonePaths = [
+            path.join(projectRoot, '.agents', 'skills', 'ai-sdlc-shared-runtime', 'scripts', 'ai_sdlc_steps.py'),
+            path.join(projectRoot, '.ai-sdlc', 'skills', 'ai-sdlc-shared-runtime', 'scripts', 'ai_sdlc_steps.py'),
+            path.join(projectRoot, 'skills', 'ai-sdlc-shared-runtime', 'scripts', 'ai_sdlc_steps.py')
+          ];
+          return {
+            loopScript: loopPaths.find(p => fs.existsSync(p)),
+            backboneScript: backbonePaths.find(p => fs.existsSync(p))
+          };
         };
 
         const getCurrentBranch = async () => {
@@ -47,13 +55,15 @@ function aiSdlcApiPlugin() {
 
         if (req.method === 'GET' && req.url === '/api/session') {
           try {
-            const loopScript = getLoopScript();
+            const { loopScript, backboneScript } = getScripts();
             const branch = await getCurrentBranch();
             const projectName = path.basename(projectRoot);
+            
+            const profile = loopScript ? 'loop' : (backboneScript ? 'backbone' : 'loop');
 
-            if (!loopScript) {
+            if (!loopScript && !backboneScript) {
               return sendJSON({
-                profile: 'loop',
+                profile,
                 status: 'disconnected',
                 stageIndex: 0,
                 connected: false,
@@ -63,17 +73,24 @@ function aiSdlcApiPlugin() {
             }
 
             try {
-              // Try to get real status
-              const { stdout } = await execAsync(`python3 "${loopScript}" status --feature "${branch}"`, { cwd: projectRoot });
-              
-              // Depending on loop.py output, we could parse the exact stage.
-              // For a thin adapter, we map the text to our UI stages.
+              let stdout = '';
               let stageIndex = 1;
               let status = 'awaiting_approval';
-              
-              if (stdout.includes('Verify')) stageIndex = 4;
-              else if (stdout.includes('Implement')) stageIndex = 2;
-              else if (stdout.includes('Commit')) stageIndex = 5;
+
+              if (profile === 'loop' && loopScript) {
+                const result = await execAsync(`python3 "${loopScript}" status --feature "${branch}"`, { cwd: projectRoot });
+                stdout = result.stdout;
+                if (stdout.includes('Verify')) stageIndex = 4;
+                else if (stdout.includes('Implement')) stageIndex = 2;
+                else if (stdout.includes('Commit')) stageIndex = 5;
+              } else if (profile === 'backbone' && backboneScript) {
+                const result = await execAsync(`python3 "${backboneScript}" --state-check --feature "${branch}"`, { cwd: projectRoot });
+                stdout = result.stdout;
+                if (stdout.includes('plan')) stageIndex = 3;
+                else if (stdout.includes('implement')) stageIndex = 4;
+                else if (stdout.includes('verify')) stageIndex = 5;
+                else if (stdout.includes('handoff')) stageIndex = 6;
+              }
 
               return sendJSON({
                 profile: 'loop',
@@ -107,20 +124,22 @@ function aiSdlcApiPlugin() {
            req.on('end', async () => {
              try {
                const { action } = JSON.parse(body);
-               const loopScript = getLoopScript();
+               const { loopScript, backboneScript } = getScripts();
                const branch = await getCurrentBranch();
+               const profile = loopScript ? 'loop' : (backboneScript ? 'backbone' : 'loop');
 
-               if (!loopScript) {
-                 return sendJSON({ error: 'Not connected to a Loop environment.' }, 400);
+               if (!loopScript && !backboneScript) {
+                 return sendJSON({ error: 'Not connected to Loop or Backbone environment.' }, 400);
                }
 
                if (action === 'approve') {
-                 // Map to loop.py approve
-                 // Wait, approve requires --feature, --decision, --stage, etc.
-                 // We would dynamically detect what needs approval.
-                 // For now, we do a generic approve or mock it if arguments are missing.
                  try {
-                   await execAsync(`python3 "${loopScript}" approve --feature "${branch}" --decision approved`, { cwd: projectRoot });
+                   if (profile === 'loop' && loopScript) {
+                     await execAsync(`python3 "${loopScript}" approve --feature "${branch}" --decision approved`, { cwd: projectRoot });
+                   } else if (profile === 'backbone' && backboneScript) {
+                     // Simulated backbone approval (typically backbone relies on step transitions)
+                     await execAsync(`python3 "${backboneScript}" --complete-state --feature "${branch}"`, { cwd: projectRoot });
+                   }
                  } catch (e) {
                    console.log('Approve command output:', e.message);
                  }
