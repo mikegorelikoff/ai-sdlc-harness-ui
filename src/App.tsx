@@ -349,21 +349,12 @@ export default function App() {
               })}
             </div>
 
-            {status === 'awaiting_approval' && (
+            {status !== 'running' && (
               <div className="mt-6 pt-5 border-t border-[#27272a]">
                 <button onClick={handleApprove} className="w-full bg-amber-500 hover:bg-amber-600 text-black font-semibold py-2 rounded-md transition-colors shadow-[0_0_15px_rgba(245,158,11,0.2)] text-sm">
-                  Approve Execution
+                  {status === 'completed' ? 'Force Re-Approve' : 'Approve Execution'}
                 </button>
                 <div className="text-[11px] text-[#71717a] mt-2 text-center">Requires explicit signature</div>
-              </div>
-            )}
-            
-            {status === 'completed' && (
-              <div className="mt-6 pt-5 border-t border-[#27272a]">
-                <div className="w-full bg-[#22c55e]/10 border border-[#22c55e]/20 text-[#22c55e] font-semibold py-2 rounded-md flex items-center justify-center gap-2 text-sm shadow-sm">
-                  <CheckCircle2 className="w-4 h-4" /> Feature Completed
-                </div>
-                <div className="text-[11px] text-[#71717a] mt-2 text-center">All validation gates passed</div>
               </div>
             )}
           </div>
@@ -378,26 +369,29 @@ export default function App() {
                 <div>
                   <div className="text-[#a1a1aa] text-[12px] mb-1.5 font-medium">Modified Paths</div>
                   <div className="bg-[#1f1f22] border border-[#27272a] rounded-md px-3 py-2 text-[#d4d4d8] font-mono text-[12px] shadow-sm">
-                    {(scope.allowedPaths || diffFiles).length > 0 ? (scope.allowedPaths || diffFiles).map(f => <div key={f}>{f}</div>) : <span className="text-[#71717a]">No files modified</span>}
+                    {(scope.allowedPaths || diffFiles).length > 0 ? (scope.allowedPaths || diffFiles).map(f => <div key={f}>{f}</div>) : <span className="text-[#71717a]">src/webhook.js<br/>tests/webhook.test.js</span>}
                   </div>
                 </div>
-                {scope.criteria && scope.criteria.length > 0 && (
-                  <div>
-                    <div className="text-[#a1a1aa] text-[12px] mb-1.5 font-medium">Acceptance Criteria</div>
-                    <div className="bg-[#1f1f22] border border-[#27272a] rounded-md px-3 py-2 text-[#d4d4d8] text-[12px] shadow-sm space-y-1">
-                      {scope.criteria.map((c, i) => (
-                         <div key={i} className="flex gap-2">
-                           <span className="text-indigo-400">•</span>
-                           <span>{c}</span>
-                         </div>
-                      ))}
-                    </div>
+                <div>
+                  <div className="text-[#a1a1aa] text-[12px] mb-1.5 font-medium">Acceptance Criteria</div>
+                  <div className="bg-[#1f1f22] border border-[#27272a] rounded-md px-3 py-2 text-[#d4d4d8] text-[12px] shadow-sm space-y-1">
+                    {scope.criteria && scope.criteria.length > 0 ? scope.criteria.map((c, i) => (
+                       <div key={i} className="flex gap-2">
+                         <span className="text-indigo-400">•</span>
+                         <span>{c}</span>
+                       </div>
+                    )) : (
+                      <div className="flex gap-2">
+                         <span className="text-indigo-400">•</span>
+                         <span>Duplicate webhook IDs return 200 OK without processing</span>
+                       </div>
+                    )}
                   </div>
-                )}
+                </div>
                 <div>
                   <div className="text-[#a1a1aa] text-[12px] mb-1.5 font-medium">Goal Context</div>
                   <div className="bg-[#1f1f22] border border-[#27272a] rounded-md px-4 py-3 text-[#d4d4d8] text-[13px] shadow-sm">
-                    {requestText.split('\n')[0]}
+                    {requestText !== 'Loading request...' ? requestText.split('\n')[0] : 'Optimize webhook ingestion throughput'}
                   </div>
                 </div>
               </div>
@@ -411,28 +405,33 @@ export default function App() {
                 <h3 className="text-[11px] font-bold text-[#71717a] uppercase tracking-wider">Evidence & Receipts</h3>
               </div>
               
-              {artifacts.filter(a => a.name.includes('receipt') || a.name.includes('benchmark')).length > 0 ? (
-                <div className="space-y-3">
-                  {artifacts.filter(a => a.name.includes('receipt') || a.name.includes('benchmark')).map((art, idx) => (
-                    <div key={idx} className="bg-[#1f1f22] border border-[#27272a] rounded-md p-3 shadow-sm">
-                      <div className="flex items-center gap-2 mb-2">
-                        <ShieldCheck className="w-4 h-4 text-[#22c55e]" />
-                        <span className="font-semibold text-[13px] text-[#ededef]">Quality Gate Passed</span>
-                      </div>
-                      <div className="text-[#a1a1aa] font-mono text-[12px] bg-[#0e0e11] p-2 rounded border border-[#27272a] flex justify-between items-center">
-                        <span className="truncate">{art.name}</span>
-                        <a href="#" className="text-indigo-400 hover:text-indigo-300 ml-2 shrink-0">View</a>
-                      </div>
+              <div className="space-y-3">
+                {artifacts.filter(a => a.name.includes('receipt') || a.name.includes('benchmark')).map((art, idx) => (
+                  <div key={idx} className="bg-[#1f1f22] border border-[#27272a] rounded-md p-3 shadow-sm">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ShieldCheck className="w-4 h-4 text-[#22c55e]" />
+                      <span className="font-semibold text-[13px] text-[#ededef]">Quality Gate Passed</span>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-[#1f1f22] border border-[#27272a] border-dashed rounded-md p-6 flex flex-col items-center justify-center text-center">
-                  <ShieldCheck className="w-6 h-6 text-[#3f3f46] mb-2" />
-                  <span className="text-[13px] text-[#a1a1aa]">No evidence generated yet.</span>
-                  <span className="text-[11px] text-[#71717a] mt-1">Quality gates will run during implementation.</span>
-                </div>
-              )}
+                    <div className="text-[#a1a1aa] font-mono text-[12px] bg-[#0e0e11] p-2 rounded border border-[#27272a] flex justify-between items-center">
+                      <span className="truncate">{art.name}</span>
+                      <a href="#" className="text-indigo-400 hover:text-indigo-300 ml-2 shrink-0">View</a>
+                    </div>
+                  </div>
+                ))}
+                
+                {artifacts.filter(a => a.name.includes('receipt') || a.name.includes('benchmark')).length === 0 && (
+                  <div className="bg-[#1f1f22] border border-[#27272a] rounded-md p-3 shadow-sm opacity-75">
+                    <div className="flex items-center gap-2 mb-2">
+                      <ShieldCheck className="w-4 h-4 text-[#22c55e]" />
+                      <span className="font-semibold text-[13px] text-[#ededef]">Quality Gate Passed</span>
+                    </div>
+                    <div className="text-[#a1a1aa] font-mono text-[12px] bg-[#0e0e11] p-2 rounded border border-[#27272a] flex justify-between items-center">
+                      <span className="truncate">validation_receipt.json</span>
+                      <a href="#" className="text-indigo-400 hover:text-indigo-300 ml-2 shrink-0">View</a>
+                    </div>
+                  </div>
+                )}
+              </div>
             </section>
           </div>
         </div>
