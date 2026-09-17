@@ -58,19 +58,28 @@ function aiSdlcApiPlugin() {
           let diffText = '';
           let files = [];
           try {
-             // Try to get uncommitted diff or diff against main
              const { stdout: diffOut } = await execAsync('git diff HEAD~1', { cwd: projectRoot });
              diffText = diffOut;
-             
              const { stdout: nameOut } = await execAsync('git log -1 --pretty=%B', { cwd: projectRoot });
              requestText = nameOut.trim();
-
              const { stdout: filesOut } = await execAsync('git diff HEAD~1 --name-only', { cwd: projectRoot });
              files = filesOut.split('\n').filter(Boolean);
           } catch (e) {
              requestText = 'No request context available.';
           }
           return { requestText, diffText, files };
+        };
+
+        const getSessions = async () => {
+          try {
+            const { stdout } = await execAsync('git for-each-ref --sort=-committerdate refs/heads/ --format="%(refname:short)|%(contents:subject)"', { cwd: projectRoot });
+            return stdout.split('\n').filter(Boolean).map(line => {
+              const [branch, subject] = line.split('|');
+              return { branch, subject, active: false };
+            });
+          } catch (e) {
+            return [];
+          }
         };
 
         if (req.method === 'GET' && req.url === '/api/session') {
@@ -81,6 +90,10 @@ function aiSdlcApiPlugin() {
             
             const profile = loopScript ? 'loop' : (backboneScript ? 'backbone' : 'loop');
             const repoData = await getRepoData(branch);
+            const sessions = await getSessions();
+
+            // Mark current active
+            const mappedSessions = sessions.map(s => ({ ...s, active: s.branch === branch }));
 
             if (!loopScript && !backboneScript) {
               return sendJSON({
@@ -90,6 +103,7 @@ function aiSdlcApiPlugin() {
                 connected: false,
                 projectName,
                 branch,
+                sessions: mappedSessions,
                 ...repoData
               });
             }
@@ -122,18 +136,21 @@ function aiSdlcApiPlugin() {
                 projectName,
                 branch,
                 rawStatus: stdout,
+                sessions: mappedSessions,
                 ...repoData
               });
             } catch (err) {
               // If status fails (e.g., no feature state yet)
               return sendJSON({
-                profile: 'loop',
+                profile,
                 status: 'empty',
                 stageIndex: 0,
                 connected: true,
                 projectName,
                 branch,
-                rawStatus: 'No active loop state found for this feature.'
+                rawStatus: 'No active state found for this feature.',
+                sessions: mappedSessions,
+                ...repoData
               });
             }
           } catch (err) {
