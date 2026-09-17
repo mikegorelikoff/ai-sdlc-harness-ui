@@ -347,37 +347,97 @@ export default function App() {
           )}
 
           {activeTab === 'Trajectory' && (
-            <div className="max-w-3xl mx-auto space-y-6">
-              <div className="relative border-l-2 border-[#27272a] ml-4 pl-8 py-2">
-                <div className="p-6">
-                  <h2 className="text-lg font-semibold text-[#ededef] mb-6 flex items-center gap-2">
-                    <Activity className="w-5 h-5 text-indigo-400" />
-                    Recent History
-                  </h2>
-                  
-                  <div className="max-w-3xl">
-                    {trajectory.length > 0 ? trajectory.map((item, idx) => (
-                      <div key={item.hash} className="relative mb-8 last:mb-0">
-                        {idx !== trajectory.length - 1 && <div className="absolute top-8 left-3.5 bottom-[-2rem] w-px bg-[#27272a]"></div>}
-                        <div className="flex gap-4 relative">
-                          <div className="w-7 h-7 rounded-full bg-[#1f1f22] border border-[#3f3f46] flex items-center justify-center flex-shrink-0 z-10 text-[10px] text-[#a1a1aa] font-mono shadow-sm">
-                            {item.hash.slice(0, 4)}
-                          </div>
-                          <div className="pt-1.5 flex-1">
-                            <div className="flex items-baseline justify-between mb-2">
-                              <span className="text-sm font-semibold text-[#ededef]">Git Commit</span>
-                              <span className="text-[11px] text-[#71717a] font-mono">{item.time}</span>
-                            </div>
-                            <div className="bg-[#141417] border border-[#27272a] rounded-lg p-3.5 shadow-sm text-sm text-[#d4d4d8] font-mono whitespace-pre-wrap">
-                              {item.message}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )) : (
-                      <div className="text-sm text-[#71717a] italic">No recent history available</div>
+            <div className="flex flex-col h-full bg-[#0e0e11] overflow-hidden">
+              {/* Activity Feed */}
+              <div className="flex-1 overflow-y-auto p-6 space-y-6">
+                {/* User Request Bubble */}
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-[#1f1f22] border border-[#3f3f46] flex items-center justify-center flex-shrink-0 text-[#ededef] font-medium text-sm shadow-sm">U</div>
+                  <div className="pt-1 w-full max-w-3xl">
+                    <div className="font-semibold text-sm text-[#ededef] mb-1">User</div>
+                    <div className="text-sm text-[#d4d4d8] leading-relaxed whitespace-pre-wrap">{requestText}</div>
+                  </div>
+                </div>
+
+                {/* Agent Activity */}
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center flex-shrink-0 shadow-sm relative">
+                    <Activity className="w-4 h-4 text-indigo-400" />
+                    {stageIndex > 0 && stageIndex < 5 && (
+                       <span className="absolute -bottom-1 -right-1 w-3 h-3 bg-indigo-500 rounded-full animate-ping opacity-50"></span>
                     )}
                   </div>
+                  <div className="pt-1 w-full max-w-3xl">
+                    <div className="font-semibold text-sm text-indigo-400 mb-1">AI SDLC {profile === 'loop' ? 'Loop' : 'Backbone'}</div>
+                    
+                    <div className="mt-3 space-y-3">
+                      {/* Collapsible-style steps (Trajectory) */}
+                      {trajectory.length > 0 ? trajectory.map((item, idx) => (
+                        <div key={item.hash} className="bg-[#141417] border border-[#27272a] rounded-lg overflow-hidden shadow-sm">
+                          <div className="px-3 py-2 bg-[#1f1f22] border-b border-[#27272a] flex items-center gap-2 cursor-pointer hover:bg-[#27272a]/50 transition-colors">
+                            <ChevronRight className="w-4 h-4 text-[#71717a]" />
+                            <div className="flex-1 flex items-center justify-between">
+                              <span className="text-sm font-medium text-[#ededef]">Commit {item.hash.slice(0, 7)}</span>
+                              <span className="text-[11px] text-[#71717a] font-mono">{item.time}</span>
+                            </div>
+                          </div>
+                          <div className="px-4 py-3 text-sm text-[#a1a1aa] font-mono whitespace-pre-wrap leading-relaxed">
+                            {item.message}
+                          </div>
+                        </div>
+                      )) : (
+                        <div className="text-sm text-[#71717a] italic flex items-center gap-2">
+                           <Activity className="w-4 h-4 animate-spin opacity-50" />
+                           Initializing environment and scanning workspace...
+                        </div>
+                      )}
+
+                      {/* Working Set / Diffs preview */}
+                      {diffFiles.length > 0 && (
+                        <div className="mt-4 bg-[#141417] border border-[#27272a] rounded-lg p-4 shadow-sm">
+                          <div className="text-[11px] uppercase tracking-wider font-semibold text-[#71717a] mb-3 flex items-center gap-2">
+                            <FileCode2 className="w-3.5 h-3.5" /> Working Set
+                          </div>
+                          <div className="space-y-1.5">
+                            {diffFiles.map(f => (
+                              <div key={f} className="flex items-center gap-2 text-[13px]">
+                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500"></span>
+                                <span className="font-mono text-[#d4d4d8] truncate">{f}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Chat Input Area (VS Code style) */}
+              <div className="p-4 bg-[#141417] border-t border-[#27272a]">
+                <div className="max-w-3xl mx-auto relative bg-[#1f1f22] border border-[#3f3f46] focus-within:border-indigo-500 rounded-xl overflow-hidden transition-colors shadow-sm">
+                  <textarea 
+                    placeholder="Ask a question or specify constraints for this session..." 
+                    className="w-full bg-transparent text-[#ededef] text-sm p-4 min-h-[100px] resize-none focus:outline-none placeholder:text-[#71717a]"
+                  ></textarea>
+                  <div className="flex items-center justify-between px-3 py-2 bg-[#1f1f22] border-t border-[#27272a]">
+                    <div className="flex items-center gap-2 text-[#71717a]">
+                      <button className="p-1.5 hover:bg-[#27272a] rounded-md transition-colors" title="Attach Context">
+                        <Folder className="w-4 h-4" />
+                      </button>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button className="text-[11px] font-semibold uppercase tracking-wider px-3 py-1.5 rounded-md text-[#a1a1aa] hover:bg-[#27272a] transition-colors">
+                        Cancel
+                      </button>
+                      <button className="flex items-center gap-1.5 bg-indigo-500 hover:bg-indigo-600 text-white text-sm font-medium px-4 py-1.5 rounded-md transition-colors shadow-sm">
+                        <Play className="w-3.5 h-3.5" /> Submit
+                      </button>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-center text-[10px] text-[#71717a] mt-2">
+                  AI SDLC commands and changes are strictly bounded by your configured policies.
                 </div>
               </div>
             </div>
