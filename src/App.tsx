@@ -13,44 +13,49 @@ const LOOP_STAGES = [
   'Engineering Quality Gate', 'Verify', 'Commit approval', 'Commit'
 ];
 
-export default function App() {
-  const [profile] = useState<Profile>('loop');
-  const [status, setStatus] = useState<Status>('awaiting_approval');
-  const [stageIndex, setStageIndex] = useState(1);
+  const [profile, setProfile] = useState<Profile>('loop');
+  const [status, setStatus] = useState<Status>('empty');
+  const [stageIndex, setStageIndex] = useState(0);
   const [activeTab, setActiveTab] = useState('Session');
   const [isInspectorOpen, setIsInspectorOpen] = useState(true);
+  const [isConnected, setIsConnected] = useState(false);
+  const [projectName, setProjectName] = useState('loading...');
 
-  // Demo state
-  const [, setScopeDrift] = useState(false);
+  // Production-ready data fetching adapter
+  useEffect(() => {
+    const fetchState = async () => {
+      try {
+        const res = await fetch('/api/session');
+        const data = await res.json();
+        setProfile(data.profile);
+        setStatus(data.status);
+        setStageIndex(data.stageIndex);
+        setIsConnected(data.connected);
+        setProjectName(data.projectName);
+      } catch (err) {
+        setIsConnected(false);
+      }
+    };
+    fetchState();
+    const interval = setInterval(fetchState, 1000); // Polling for state updates
+    return () => clearInterval(interval);
+  }, []);
 
-  const stages = LOOP_STAGES;
+  const stages = profile === 'loop' ? LOOP_STAGES : ['Request', 'Explore', 'Specify', 'Plan', 'Implement', 'Verify', 'Handoff'];
 
-  const handleApprove = () => {
-    if (stageIndex === 1) { 
-      setStatus('running');
-      setStageIndex(2); 
-      setTimeout(() => {
-        setStageIndex(3); 
-        setTimeout(() => {
-          setStageIndex(4); 
-          setTimeout(() => {
-            setStageIndex(5); 
-            setStatus('awaiting_approval');
-          }, 1500);
-        }, 1500);
-      }, 2000);
-    } else if (stageIndex === 5) { 
-      setStatus('running');
-      setStageIndex(6); 
-      setTimeout(() => {
-        setStatus('completed');
-      }, 1000);
-    }
+  const handleApprove = async () => {
+    setStatus('running'); // Optimistic
+    await fetch('/api/action', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'approve' })
+    });
   };
 
-  const handleSimulateDrift = () => {
-    setScopeDrift(true);
-    setStatus('stale');
+  const handleSimulateDrift = async () => {
+    await fetch('/api/action', {
+      method: 'POST',
+      body: JSON.stringify({ action: 'drift' })
+    });
   };
 
   return (
@@ -65,7 +70,7 @@ export default function App() {
               <Folder className="w-3.5 h-3.5 text-white" />
             </div>
             <div className="flex flex-col truncate">
-              <span className="font-semibold text-sm truncate text-[#ededef]">ai-sdlc-harness</span>
+              <span className="font-semibold text-sm truncate text-[#ededef]">{projectName}</span>
               <span className="text-[10px] font-mono text-[#a1a1aa]">mikegorelikoff</span>
             </div>
           </div>
@@ -158,9 +163,9 @@ export default function App() {
             </div>
           </div>
           <div className="flex items-center gap-3">
-             <div className="px-2.5 py-1 bg-[#1f1f22] text-[#a1a1aa] border border-[#27272a] rounded-md text-[11px] font-mono flex items-center gap-1.5">
-               <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span>
-               Disconnected
+             <div className={`px-2.5 py-1 ${isConnected ? 'bg-[#22c55e]/10 text-[#22c55e]' : 'bg-[#1f1f22] text-[#a1a1aa]'} border border-[#27272a] rounded-md text-[11px] font-mono flex items-center gap-1.5`}>
+               <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-[#22c55e]' : 'bg-red-500'}`}></span>
+               {isConnected ? 'Connected' : 'Disconnected'}
              </div>
              <button onClick={() => setIsInspectorOpen(!isInspectorOpen)} className={`p-1.5 rounded-md transition-colors ${isInspectorOpen ? 'bg-[#27272a] text-white' : 'hover:bg-[#1f1f22] text-[#a1a1aa]'}`}>
                <LayoutTemplate className="w-4 h-4" />
